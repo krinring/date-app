@@ -841,7 +841,7 @@ let places = [], archived = [], suggestions = [], preferences = {}, config = {};
 // ── UI state ──
 let cbCtr = 0, dbgLines = [], useFetch = true;
 let wantFilter = 'all', archiveFilter = 'all';
-let swipeIdx = 0, pendingSuggestions = [];
+let pendingSuggestions = [];
 let editingId = null, visitingId = null, currentRating = 0;
 
 // ── Genre system ──
@@ -984,7 +984,7 @@ async function init(){
 function renderAll(){
   renderFilters();renderWant();renderArchive();
   pendingSuggestions=suggestions.filter(s=>s.response==='pending');
-  swipeIdx=0;renderSwipeDeck();renderSuggestHistory();renderPreferences();
+  renderSwipeDeck();renderSuggestHistory();renderPreferences();
   document.getElementById('s-key').value=localStorage.getItem('claude_api_key')||'';
   document.getElementById('s-gas').value=GAS;
 }
@@ -1243,7 +1243,7 @@ async function generateSuggestions(){
       suggestions.push(...newS);
     }
     pendingSuggestions=suggestions.filter(s=>s.response==='pending');
-    swipeIdx=0;renderSwipeDeck();renderSuggestHistory();
+    renderSwipeDeck();renderSuggestHistory();
     status.style.display='none';toast(`${newS.length}件の提案を生成しました`);
   }catch(e){status.textContent='エラー: '+e.message;log('generateSuggestions: '+e.message,'err');}
   btn.disabled=false;
@@ -1252,16 +1252,14 @@ async function generateSuggestions(){
 function renderSwipeDeck(){
   const stack=document.getElementById('swipe-stack');
   const btns=document.getElementById('swipe-btns');
+  // Always rebuild from scratch — swiped cards have response!='pending' and are excluded
   pendingSuggestions=suggestions.filter(s=>s.response==='pending');
   if(!pendingSuggestions.length){
     stack.innerHTML=`<div class="empty-state"><div class="empty-icon">✦</div><div class="empty-title">提案を生成しよう</div><div class="empty-sub">AIが二人に合うスポットをセレクトします</div></div>`;
     btns.style.display='none';return;
   }
-  const cur=pendingSuggestions.slice(swipeIdx,swipeIdx+3);
-  if(!cur.length){
-    stack.innerHTML=`<div class="empty-state"><div class="empty-icon" style="filter:none">🎉</div><div class="empty-title">すべて確認済み！</div><div class="empty-sub">新しい提案を生成してください</div></div>`;
-    btns.style.display='none';return;
-  }
+  // Always show from index 0 — no swipeIdx offset needed
+  const cur=pendingSuggestions.slice(0,3);
   btns.style.display='flex';
   const typeLabel={'opening':'🆕 新オープン','exhibition':'🎨 展示中','seasonal':'🌸 季節限定','event':'⚡ イベント'};
   stack.innerHTML=cur.map((s,i)=>`
@@ -1278,7 +1276,7 @@ function renderSwipeDeck(){
         ${s.url?`<a href="${esc(s.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="swipe-url">公式サイト →</a>`:''}
       </div>
     </div>`).reverse().join('');
-  attachSwipeListeners(pendingSuggestions[swipeIdx].id);
+  attachSwipeListeners(pendingSuggestions[0].id); // top card is always index 0
 }
 function attachSwipeListeners(id){
   const card=document.getElementById('sc-'+id);if(!card)return;
@@ -1306,43 +1304,46 @@ function attachSwipeListeners(id){
   card.addEventListener('mousedown',e=>{startX=e.clientX;dragging=true;card.style.transition='none';e.preventDefault();});
   document.addEventListener('mousemove',mm);document.addEventListener('mouseup',mu);
 }
-// swipe guard — prevents double-fire from button mashing or fast touch
+// swipe guard — prevents double-fire from rapid taps
 let _swiping = false;
 
 function swipeYes(){
   if(_swiping)return;
-  const s=pendingSuggestions[swipeIdx];if(!s)return;
+  const s=pendingSuggestions[0];if(!s)return; // always top of stack
   _swiping=true;
 
   // 1. Fly animation immediately
   const card=document.getElementById('sc-'+s.id);if(card)card.classList.add('fly-yes');
 
-  // 2. Update local state immediately (no GAS wait)
+  // 2. Update ALL local state immediately (so renderSwipeDeck sees correct data)
   const newP={id:s.id,name:s.name,url:s.url||'',memo:s.description,genre:s.genre,location:'',price:s.price||'',addedDate:todayStr(),status:'want'};
   places.push(newP);
   const si=suggestions.findIndex(x=>x.id===s.id);if(si>=0)suggestions[si].response='yes';
   if(s.genre){if(!preferences[s.genre])preferences[s.genre]={liked:0,disliked:0};preferences[s.genre].liked++;}
-  swipeIdx++;
 
-  // 3. Re-render next card right after fly animation (responsive!)
+  // 3. Re-render after fly animation — pendingSuggestions[0] now = next card (no index offset needed)
   toast(`「${s.name}」を追加しました ♡`);
   setTimeout(()=>{
     renderSwipeDeck();renderFilters();renderWant();renderSuggestHistory();renderPreferences();
     _swiping=false;
   },390);
 
-  // 4. Background GAS save (fire and forget — don't block UI)
+  // 4. Background GAS save — serial to avoid JSONP conflicts, reset fetch flag each time
   setSt('busy','保存中...');
-  Promise.all([
-    gasAppend('places',[[newP.id,newP.name,newP.url,newP.memo,newP.genre,newP.location,newP.price,newP.addedDate,newP.status]]),
-    gasWrite('suggestions',[['id','name','url','genre','description','price','suggestedDate','response','suggestedType'],...suggestions.map(x=>[x.id,x.name,x.url,x.genre,x.description,x.price,x.suggestedDate,x.response,x.suggestedType])]),
-    savePreferences()
-  ]).then(()=>setSt('ok','同期済み')).catch(e=>{log('swipeYes save: '+e.message,'err');setSt('err','保存失敗');});
+  (async()=>{
+    try{
+      await gasAppend('places',[[newP.id,newP.name,newP.url,newP.memo,newP.genre,newP.location,newP.price,newP.addedDate,newP.status]]);
+      useFetch=true; // reset: suggestions write is large, retry fetch
+      await gasWrite('suggestions',[['id','name','url','genre','description','price','suggestedDate','response','suggestedType'],...suggestions.map(x=>[x.id,x.name,x.url,x.genre,x.description,x.price,x.suggestedDate,x.response,x.suggestedType])]);
+      await savePreferences();
+      setSt('ok','同期済み');
+    }catch(e){log('swipeYes save: '+e.message,'err');setSt('err','保存失敗');}
+  })();
 }
 
 function swipeNo(){
   if(_swiping)return;
-  const s=pendingSuggestions[swipeIdx];if(!s)return;
+  const s=pendingSuggestions[0];if(!s)return;
   _swiping=true;
 
   // 1. Fly animation immediately
@@ -1351,20 +1352,23 @@ function swipeNo(){
   // 2. Update local state immediately
   const si=suggestions.findIndex(x=>x.id===s.id);if(si>=0)suggestions[si].response='no';
   if(s.genre){if(!preferences[s.genre])preferences[s.genre]={liked:0,disliked:0};preferences[s.genre].disliked++;}
-  swipeIdx++;
 
-  // 3. Re-render immediately
+  // 3. Re-render after animation
   setTimeout(()=>{
     renderSwipeDeck();renderSuggestHistory();renderPreferences();
     _swiping=false;
   },390);
 
-  // 4. Background GAS save
+  // 4. Background GAS save (serial)
   setSt('busy','保存中...');
-  Promise.all([
-    gasWrite('suggestions',[['id','name','url','genre','description','price','suggestedDate','response','suggestedType'],...suggestions.map(x=>[x.id,x.name,x.url,x.genre,x.description,x.price,x.suggestedDate,x.response,x.suggestedType])]),
-    savePreferences()
-  ]).then(()=>setSt('ok','同期済み')).catch(e=>{log('swipeNo save: '+e.message,'err');setSt('err','保存失敗');});
+  (async()=>{
+    try{
+      useFetch=true;
+      await gasWrite('suggestions',[['id','name','url','genre','description','price','suggestedDate','response','suggestedType'],...suggestions.map(x=>[x.id,x.name,x.url,x.genre,x.description,x.price,x.suggestedDate,x.response,x.suggestedType])]);
+      await savePreferences();
+      setSt('ok','同期済み');
+    }catch(e){log('swipeNo save: '+e.message,'err');setSt('err','保存失敗');}
+  })();
 }
 function renderSuggestHistory(){
   const el=document.getElementById('suggest-history');
