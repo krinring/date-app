@@ -1306,33 +1306,65 @@ function attachSwipeListeners(id){
   card.addEventListener('mousedown',e=>{startX=e.clientX;dragging=true;card.style.transition='none';e.preventDefault();});
   document.addEventListener('mousemove',mm);document.addEventListener('mouseup',mu);
 }
-async function swipeYes(){
+// swipe guard — prevents double-fire from button mashing or fast touch
+let _swiping = false;
+
+function swipeYes(){
+  if(_swiping)return;
   const s=pendingSuggestions[swipeIdx];if(!s)return;
+  _swiping=true;
+
+  // 1. Fly animation immediately
   const card=document.getElementById('sc-'+s.id);if(card)card.classList.add('fly-yes');
+
+  // 2. Update local state immediately (no GAS wait)
   const newP={id:s.id,name:s.name,url:s.url||'',memo:s.description,genre:s.genre,location:'',price:s.price||'',addedDate:todayStr(),status:'want'};
-  places.push(newP);setSt('busy','保存中...');
-  try{
-    await gasAppend('places',[[newP.id,newP.name,newP.url,newP.memo,newP.genre,newP.location,newP.price,newP.addedDate,newP.status]]);
-    await respondSuggestion(s.id,'yes');
-    if(s.genre){if(!preferences[s.genre])preferences[s.genre]={liked:0,disliked:0};preferences[s.genre].liked++;await savePreferences();}
-    setSt('ok','同期済み');toast(`「${s.name}」を追加しました ♡`);
-  }catch(e){log('swipeYes: '+e.message,'err');setSt('err','失敗');}
-  setTimeout(()=>{swipeIdx++;renderSwipeDeck();renderFilters();renderWant();renderSuggestHistory();renderPreferences();},390);
+  places.push(newP);
+  const si=suggestions.findIndex(x=>x.id===s.id);if(si>=0)suggestions[si].response='yes';
+  if(s.genre){if(!preferences[s.genre])preferences[s.genre]={liked:0,disliked:0};preferences[s.genre].liked++;}
+  swipeIdx++;
+
+  // 3. Re-render next card right after fly animation (responsive!)
+  toast(`「${s.name}」を追加しました ♡`);
+  setTimeout(()=>{
+    renderSwipeDeck();renderFilters();renderWant();renderSuggestHistory();renderPreferences();
+    _swiping=false;
+  },390);
+
+  // 4. Background GAS save (fire and forget — don't block UI)
+  setSt('busy','保存中...');
+  Promise.all([
+    gasAppend('places',[[newP.id,newP.name,newP.url,newP.memo,newP.genre,newP.location,newP.price,newP.addedDate,newP.status]]),
+    gasWrite('suggestions',[['id','name','url','genre','description','price','suggestedDate','response','suggestedType'],...suggestions.map(x=>[x.id,x.name,x.url,x.genre,x.description,x.price,x.suggestedDate,x.response,x.suggestedType])]),
+    savePreferences()
+  ]).then(()=>setSt('ok','同期済み')).catch(e=>{log('swipeYes save: '+e.message,'err');setSt('err','保存失敗');});
 }
-async function swipeNo(){
+
+function swipeNo(){
+  if(_swiping)return;
   const s=pendingSuggestions[swipeIdx];if(!s)return;
+  _swiping=true;
+
+  // 1. Fly animation immediately
   const card=document.getElementById('sc-'+s.id);if(card)card.classList.add('fly-no');
-  try{
-    await respondSuggestion(s.id,'no');
-    if(s.genre){if(!preferences[s.genre])preferences[s.genre]={liked:0,disliked:0};preferences[s.genre].disliked++;await savePreferences();}
-    setSt('ok','同期済み');
-  }catch(e){log('swipeNo: '+e.message,'err');setSt('err','失敗');}
-  setTimeout(()=>{swipeIdx++;renderSwipeDeck();renderSuggestHistory();renderPreferences();},390);
-}
-async function respondSuggestion(id,response){
-  const idx=suggestions.findIndex(s=>s.id===id);
-  if(idx>=0)suggestions[idx].response=response;
-  await gasWrite('suggestions',[['id','name','url','genre','description','price','suggestedDate','response','suggestedType'],...suggestions.map(s=>[s.id,s.name,s.url,s.genre,s.description,s.price,s.suggestedDate,s.response,s.suggestedType])]);
+
+  // 2. Update local state immediately
+  const si=suggestions.findIndex(x=>x.id===s.id);if(si>=0)suggestions[si].response='no';
+  if(s.genre){if(!preferences[s.genre])preferences[s.genre]={liked:0,disliked:0};preferences[s.genre].disliked++;}
+  swipeIdx++;
+
+  // 3. Re-render immediately
+  setTimeout(()=>{
+    renderSwipeDeck();renderSuggestHistory();renderPreferences();
+    _swiping=false;
+  },390);
+
+  // 4. Background GAS save
+  setSt('busy','保存中...');
+  Promise.all([
+    gasWrite('suggestions',[['id','name','url','genre','description','price','suggestedDate','response','suggestedType'],...suggestions.map(x=>[x.id,x.name,x.url,x.genre,x.description,x.price,x.suggestedDate,x.response,x.suggestedType])]),
+    savePreferences()
+  ]).then(()=>setSt('ok','同期済み')).catch(e=>{log('swipeNo save: '+e.message,'err');setSt('err','保存失敗');});
 }
 function renderSuggestHistory(){
   const el=document.getElementById('suggest-history');
