@@ -27,12 +27,57 @@ body{
   padding-bottom:calc(var(--tab) + var(--safe) + 20px);
 }
 @media(min-width:900px){
-  body{max-width:1100px;padding-bottom:0}
+  body{max-width:100%;padding-bottom:0}
+  #app{display:flex;min-height:100vh}
   .tabbar{display:none!important}
-  .dt-nav{display:flex!important}
-  .pnl.on{display:grid!important;grid-template-columns:280px 1fr;align-items:start;gap:0;padding:0}
-  .pnl-left{border-right:1px solid var(--sep);min-height:calc(100vh - 60px);padding:24px 20px}
-  .pnl-right{padding:24px 20px}
+  /* ── Sidebar ── */
+  .dt-nav{
+    display:flex!important;flex-direction:column;
+    width:220px;min-width:220px;flex-shrink:0;
+    position:sticky;top:0;height:100vh;
+    border-right:1px solid var(--sep);border-bottom:none;
+    padding:0;gap:0;
+    background:rgba(0,0,0,.98);
+    backdrop-filter:blur(40px) saturate(180%);
+    -webkit-backdrop-filter:blur(40px) saturate(180%);
+  }
+  .dt-nav-logo{
+    padding:28px 22px 20px;border-bottom:1px solid var(--sep);
+    font-size:17px;font-weight:800;letter-spacing:-.4px;
+    display:flex;align-items:center;gap:8px;flex-shrink:0;
+  }
+  .dntab{
+    padding:13px 22px;text-align:left;width:100%;
+    border-bottom:none!important;border-left:3px solid transparent;
+    font-size:14px;font-weight:500;border-radius:0;letter-spacing:-.1px;
+  }
+  .dntab.on{color:var(--acc)!important;border-left-color:var(--acc);background:rgba(255,55,95,.07)}
+  .dntab:hover:not(.on){background:rgba(255,255,255,.04)}
+  .dt-sync-area{
+    margin-top:auto;padding:16px 20px;border-top:1px solid var(--sep);
+    display:flex;align-items:center;gap:8px;cursor:pointer;
+  }
+  /* ── Main content ── */
+  #dt-main{flex:1;min-width:0;overflow-y:auto;max-height:100vh}
+  .pnl{display:none}
+  .pnl.on{display:block!important;max-width:900px;padding:0 4px}
+  /* ── Card grid ── */
+  .card-list{
+    display:grid!important;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:12px;padding:0 16px 24px;
+  }
+  #archive-list{
+    display:grid!important;
+    grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
+    gap:12px;
+  }
+  /* ── Suggest / Settings ── */
+  .swipe-wrap{max-width:480px;margin:0 auto}
+  .suggest-gen-btn{max-width:480px;margin:16px auto 0}
+  .suggest-history-section{max-width:860px;margin:0 auto}
+  .settings-section{max-width:600px;margin:0 auto}
+  .toast{bottom:24px}
 }
 
 /* ── TABBAR ── */
@@ -438,24 +483,25 @@ select.form-input option{background:var(--l2)}
 <!-- Main App -->
 <div id="app" style="display:none">
 
-  <!-- Desktop nav -->
+  <!-- Desktop nav / Sidebar -->
   <div class="dt-nav">
-    <button class="dntab on" onclick="tab('want',this)">♡ 行きたい</button>
-    <button class="dntab" onclick="tab('archive',this)">◎ アーカイブ</button>
-    <button class="dntab" onclick="tab('suggest',this)">✦ 提案</button>
-    <button class="dntab" onclick="tab('settings',this)">⚙ 設定</button>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 8px">
-      <div class="sync-wrap" onclick="toggleDbg()">
-        <div class="dot" id="dot"></div>
-        <span class="sync-txt" id="sync-txt">--</span>
-      </div>
+    <div class="dt-nav-logo">♡ <span>デートスポット</span></div>
+    <button class="dntab on" onclick="tab('want',this)">♡　行きたい</button>
+    <button class="dntab" onclick="tab('archive',this)">◎　アーカイブ</button>
+    <button class="dntab" onclick="tab('suggest',this)">✦　提案</button>
+    <button class="dntab" onclick="tab('settings',this)">⚙　設定</button>
+    <div class="dt-sync-area" onclick="toggleDbg()">
+      <div class="dot" id="dot"></div>
+      <span class="sync-txt" id="sync-txt" style="font-size:12px;color:var(--t2)">--</span>
     </div>
   </div>
 
+  <!-- Main content wrapper (desktop) -->
+  <div id="dt-main">
+
   <!-- Panel: 行きたい -->
   <div class="pnl on" id="pnl-want">
-    <div class="pnl-left" style="display:contents">
-      <div class="nav-hdr">
+    <div class="nav-hdr">
         <div>
           <div class="nav-title">行きたい</div>
         </div>
@@ -488,7 +534,6 @@ select.form-input option{background:var(--l2)}
         <div class="empty-title">まだ登録なし</div>
         <div class="empty-sub">行きたい場所を追加して、二人のリストを作ろう</div>
       </div>
-    </div>
   </div>
 
   <!-- Panel: アーカイブ -->
@@ -578,6 +623,8 @@ select.form-input option{background:var(--l2)}
 
     <div style="height:32px"></div>
   </div>
+
+  </div><!-- /dt-main -->
 </div>
 
 <!-- Modals -->
