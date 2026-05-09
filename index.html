@@ -794,7 +794,8 @@ function showSetup() {
 }
 function hideSetup() {
   document.getElementById('setup-screen').style.display='none';
-  document.getElementById('app').style.display='block';
+  const app = document.getElementById('app');
+  app.style.display = window.innerWidth >= 900 ? 'flex' : 'block';
 }
 function saveKey() {
   const k = document.getElementById('key-in').value.trim();
