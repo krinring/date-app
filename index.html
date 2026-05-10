@@ -77,10 +77,10 @@ body::before{
 .tbtn{
   flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:4px;border:none;background:none;color:var(--t2);
-  font-family:inherit;font-size:10px;font-weight:500;cursor:pointer;
-  transition:color .2s var(--ease);letter-spacing:.2px;
+  font-family:inherit;font-size:9px;font-weight:500;cursor:pointer;
+  transition:color .2s var(--ease);letter-spacing:.1px;
 }
-.tbtn .ic{font-size:22px;line-height:1;transition:transform .25s var(--spring),filter .2s}
+.tbtn .ic{font-size:20px;line-height:1;transition:transform .25s var(--spring),filter .2s}
 .tbtn.on{color:var(--acc)}
 .tbtn.on .ic{transform:scale(1.18);filter:drop-shadow(0 0 6px rgba(255,55,95,.65))}
 
@@ -263,6 +263,55 @@ body::before{
   background:none;border:none;color:var(--t2);
   font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;
   padding:0;appearance:none;-webkit-appearance:none;
+}
+
+/* ── FEED ── */
+.feed-hdr-row{display:flex;align-items:center;justify-content:space-between;padding:0 20px 16px}
+.feed-refresh-btn{
+  background:var(--ga);border:none;border-radius:22px;padding:8px 18px;
+  font-family:inherit;font-size:13px;font-weight:700;color:#fff;cursor:pointer;
+  transition:transform .15s var(--spring),box-shadow .2s;letter-spacing:-.1px;
+  box-shadow:0 4px 14px rgba(255,55,95,.28);
+}
+.feed-refresh-btn:active{transform:scale(.95)}
+.feed-refresh-btn:disabled{opacity:.45;cursor:not-allowed}
+.feed-genre-block{padding:0 16px 28px}
+.feed-genre-title{
+  font-size:13px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+  margin-bottom:12px;padding:0 4px;
+}
+.feed-cards{display:flex;flex-direction:column;gap:10px}
+.feed-card{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--r);overflow:hidden;
+  display:flex;flex-direction:column;
+  animation:cardIn .4s var(--ease) both;
+  transition:border-color .2s;
+}
+.feed-card:hover{border-color:rgba(255,255,255,.13)}
+.feed-card-body{padding:16px 18px}
+.feed-card-footer{
+  border-top:1px solid var(--sep);padding:11px 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(0,0,0,.15);
+}
+.feed-add-btn{
+  background:var(--ga);border:none;border-radius:10px;padding:6px 16px;
+  font-family:inherit;font-size:12px;font-weight:700;color:#fff;cursor:pointer;
+  transition:transform .15s var(--spring),box-shadow .15s;
+}
+.feed-add-btn:hover{transform:scale(1.03);box-shadow:0 4px 12px rgba(255,55,95,.35)}
+.feed-add-btn:active{transform:scale(.95)}
+.feed-add-btn.done{background:rgba(48,209,88,.2);color:var(--grn);pointer-events:none}
+.feed-ai-status{
+  margin:0 16px 20px;padding:16px;
+  background:rgba(191,90,242,.06);border-radius:14px;
+  font-size:13px;color:var(--t2);line-height:1.7;
+  border:1px solid rgba(191,90,242,.2);display:none;
+}
+@media(min-width:900px){
+  .feed-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
 }
 
 /* ── SWIPE ── */
@@ -584,6 +633,7 @@ select.form-input option{background:#18181c}
     <button class="dntab on" onclick="tab('want',this)">♡　行きたい</button>
     <button class="dntab" onclick="tab('archive',this)">◎　アーカイブ</button>
     <button class="dntab" onclick="tab('suggest',this)">✦　提案</button>
+    <button class="dntab" onclick="tab('feed',this)">◈　フィード</button>
     <button class="dntab" onclick="tab('settings',this)">⚙　設定</button>
     <div class="dt-sync-area" onclick="toggleDbg()">
       <div class="dot" id="dot"></div>
@@ -680,6 +730,22 @@ select.form-input option{background:#18181c}
     <div class="suggest-history-section">
       <div class="suggest-history-title">提案履歴</div>
       <div id="suggest-history"></div>
+    </div>
+  </div>
+
+  <!-- Panel: フィード -->
+  <div class="pnl" id="pnl-feed">
+    <div class="nav-hdr">
+      <div class="nav-title" style="background:var(--gb);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">フィード</div>
+      <button class="feed-refresh-btn" id="btn-feed-refresh" onclick="fetchFeed()">◈ リサーチ</button>
+    </div>
+    <div class="feed-ai-status" id="feed-ai-status"></div>
+    <div id="feed-content">
+      <div class="empty-state">
+        <div class="empty-icon">◈</div>
+        <div class="empty-title">リサーチ待機中</div>
+        <div class="empty-sub">「リサーチ」を押すとAIが最新スポットをジャンル別に調べます</div>
+      </div>
     </div>
   </div>
 
@@ -825,6 +891,7 @@ select.form-input option{background:#18181c}
   <button class="tbtn on" onclick="tab('want',this)"><span class="ic">♡</span>行きたい</button>
   <button class="tbtn" onclick="tab('archive',this)"><span class="ic">◎</span>アーカイブ</button>
   <button class="tbtn" onclick="tab('suggest',this)"><span class="ic">✦</span>提案</button>
+  <button class="tbtn" onclick="tab('feed',this)"><span class="ic">◈</span>フィード</button>
   <button class="tbtn" onclick="tab('settings',this)"><span class="ic">⚙</span>設定</button>
 </div>
 <div class="toast" id="toast"></div>
@@ -842,6 +909,7 @@ let places = [], archived = [], suggestions = [], preferences = {}, config = {};
 let cbCtr = 0, dbgLines = [], useFetch = true;
 let wantFilter = 'all', archiveFilter = 'all';
 let pendingSuggestions = [];
+let feedItems = []; // local-only, not persisted
 let editingId = null, visitingId = null, currentRating = 0;
 
 // ── Genre system ──
@@ -1304,6 +1372,19 @@ function attachSwipeListeners(id){
   card.addEventListener('mousedown',e=>{startX=e.clientX;dragging=true;card.style.transition='none';e.preventDefault();});
   document.addEventListener('mousemove',mm);document.addEventListener('mouseup',mu);
 }
+// Smoothly animate background cards forward when top card leaves
+function animateCardsForward(){
+  const cards=[...document.querySelectorAll('#swipe-stack .swipe-card:not(.fly-yes):not(.fly-no)')];
+  // DOM order after .reverse(): [bottom, middle, top(flying)] — we select non-flying ones
+  // After top leaves: each card moves one step toward top
+  // domIdx=0 is bottom, domIdx=last is new top
+  cards.forEach((card,domIdx)=>{
+    const newPos=cards.length-1-domIdx; // 0=top,1=middle,2=bottom
+    card.style.transition='transform 0.38s cubic-bezier(.25,.46,.45,.94)';
+    card.style.transform=`scale(${1-newPos*.03}) translateY(${newPos*12}px)`;
+  });
+}
+
 // swipe guard — prevents double-fire from rapid taps
 let _swiping = false;
 
@@ -1312,8 +1393,9 @@ function swipeYes(){
   const s=pendingSuggestions[0];if(!s)return; // always top of stack
   _swiping=true;
 
-  // 1. Fly animation immediately
+  // 1. Fly + simultaneously animate background cards forward (no flicker)
   const card=document.getElementById('sc-'+s.id);if(card)card.classList.add('fly-yes');
+  animateCardsForward();
 
   // 2. Update ALL local state immediately (so renderSwipeDeck sees correct data)
   const newP={id:s.id,name:s.name,url:s.url||'',memo:s.description,genre:s.genre,location:'',price:s.price||'',addedDate:todayStr(),status:'want'};
@@ -1346,8 +1428,9 @@ function swipeNo(){
   const s=pendingSuggestions[0];if(!s)return;
   _swiping=true;
 
-  // 1. Fly animation immediately
+  // 1. Fly + simultaneously animate background cards forward (no flicker)
   const card=document.getElementById('sc-'+s.id);if(card)card.classList.add('fly-no');
+  animateCardsForward();
 
   // 2. Update local state immediately
   const si=suggestions.findIndex(x=>x.id===s.id);if(si>=0)suggestions[si].response='no';
@@ -1409,6 +1492,113 @@ async function resetPreferences(){
   preferences={};
   await gasWrite('preferences',[['genre','liked_count','disliked_count']]);
   renderPreferences();toast('学習データをリセットしました');
+}
+
+// ── Feed ──
+async function fetchFeed(){
+  const btn=document.getElementById('btn-feed-refresh');
+  const status=document.getElementById('feed-ai-status');
+  if(btn.disabled)return;
+  btn.disabled=true;btn.textContent='◈ リサーチ中...';
+  status.style.display='block';status.textContent='◈ AIが最新スポットをリサーチ中です...';
+
+  const today=todayStr();const month=today.slice(5,7);
+  const visited=archived.slice(0,10).map(p=>p.name).join('、')||'なし';
+  const want=places.slice(0,8).map(p=>p.name).join('、')||'なし';
+  const prefStr=Object.entries(preferences).map(([g,v])=>`${g}:${v.liked}好き`).join(', ')||'なし';
+
+  try{
+    const text=await askClaude(
+      `今日は${today}です。カップルのデート向けに、以下のジャンルで「今${month}月に旬・話題・新しい」スポットをそれぞれ3〜4件リサーチしてください。
+
+ジャンル: レストラン, カフェ, 美術館・展示, 公園・自然, ショッピング・体験, イベント・季節限定
+
+参考（行った場所は除外）:
+- ユーザーが好きなジャンル: ${prefStr}
+- 行った場所: ${visited}
+- 行きたいリスト: ${want}
+
+JSONのみ。前置き・解説不要。
+{"genres":[{"genre":"ジャンル名","spots":[{"name":"スポット名","location":"エリア・最寄り駅","price":"価格帯 or null","description":"カップル向け50文字の魅力","url":"公式URL or null","reason":"今おすすめな理由（15文字）"}]}]}`,
+      3000
+    );
+    const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+    feedItems=(json.genres||[]).flatMap(g=>
+      (g.spots||[]).map(s=>({
+        id:(Date.now()+Math.random()).toString().replace('.',''),
+        genre:g.genre,name:s.name,location:s.location||'',
+        price:s.price&&s.price!=='null'?s.price:'',
+        description:s.description||'',url:s.url&&s.url!=='null'?s.url:'',
+        reason:s.reason||'',added:false
+      }))
+    );
+    renderFeed();
+    status.style.display='none';
+    toast(`${feedItems.length}件の最新スポットを取得しました`);
+  }catch(e){
+    status.textContent='エラー: '+e.message;
+    log('fetchFeed: '+e.message,'err');
+  }
+  btn.disabled=false;btn.textContent='◈ 再リサーチ';
+}
+
+function renderFeed(){
+  const el=document.getElementById('feed-content');
+  if(!feedItems.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">◈</div><div class="empty-title">リサーチ待機中</div><div class="empty-sub">「リサーチ」を押すとAIが最新スポットをジャンル別に調べます</div></div>`;
+    return;
+  }
+  // group by genre
+  const byGenre={};
+  feedItems.forEach(item=>{
+    if(!byGenre[item.genre])byGenre[item.genre]=[];
+    byGenre[item.genre].push(item);
+  });
+  el.innerHTML=Object.entries(byGenre).map(([genre,items])=>{
+    const c=genreColor(genre);
+    return`<div class="feed-genre-block">
+      <div class="feed-genre-title" style="color:${c}">${esc(genre)}</div>
+      <div class="feed-cards">
+        ${items.map(item=>{
+          let linkEl='';
+          try{if(item.url)linkEl=`<a href="${esc(item.url)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--blu);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:160px">${new URL(item.url).hostname}</a>`;}catch(e){}
+          return`<div class="feed-card" id="fc-${item.id}">
+            <div class="feed-card-body">
+              <div style="font-size:17px;font-weight:700;letter-spacing:-.3px;margin-bottom:6px">${esc(item.name)}</div>
+              <div style="font-size:13px;color:var(--t2);margin-bottom:8px;line-height:1.55">${esc(item.description)}</div>
+              ${item.reason?`<div style="display:inline-flex;align-items:center;gap:5px;background:${c}18;border:1px solid ${c}30;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:${c};margin-bottom:8px">✦ ${esc(item.reason)}</div>`:''}
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                ${item.location?`<span style="font-size:12px;color:var(--t2)">📍 ${esc(item.location)}</span>`:''}
+                ${item.price?`<span style="font-size:12px;color:var(--t2)">💴 ${esc(item.price)}</span>`:''}
+              </div>
+            </div>
+            <div class="feed-card-footer">
+              ${linkEl}
+              <button class="feed-add-btn ${item.added?'done':''}" onclick="feedAdd('${item.id}')">${item.added?'追加済み ✓':'+ 行きたいに追加'}</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function feedAdd(id){
+  const item=feedItems.find(x=>x.id===id);if(!item||item.added)return;
+  item.added=true;
+  renderFeed();
+  const newP={id:item.id,name:item.name,url:item.url||'',memo:item.description,genre:item.genre,location:item.location||'',price:item.price||'',addedDate:todayStr(),status:'want'};
+  places.push(newP);
+  setSt('busy','保存中...');
+  try{
+    if(places.length===1){
+      await gasWrite('places',[['id','name','url','memo','genre','location','price','addedDate','status'],[newP.id,newP.name,newP.url,newP.memo,newP.genre,newP.location,newP.price,newP.addedDate,newP.status]]);
+    }else{
+      await gasAppend('places',[[newP.id,newP.name,newP.url,newP.memo,newP.genre,newP.location,newP.price,newP.addedDate,newP.status]]);
+    }
+    renderFilters();renderWant();
+    setSt('ok','同期済み');toast(`「${item.name}」を行きたいに追加しました`);
+  }catch(e){log('feedAdd: '+e.message,'err');setSt('err','保存失敗');}
 }
 
 // ── Startup ──
