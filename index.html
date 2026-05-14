@@ -42,7 +42,7 @@ body::before{
     radial-gradient(ellipse 70% 60% at 8% 0%,   rgba(191,90,242,.2)  0%,transparent 65%),
     radial-gradient(ellipse 55% 50% at 92% 100%, rgba(255,55,95,.16)  0%,transparent 65%),
     radial-gradient(ellipse 40% 50% at 50% 55%,  rgba(10,132,255,.07) 0%,transparent 65%);
-  animation:aurora 14s ease-in-out infinite alternate;
+  animation:aurora 14s ease-in-out infinite alternate;will-change:transform;
 }
 @keyframes aurora{
   0%  {transform:translate(0,0)    scale(1)}
@@ -512,6 +512,44 @@ select.form-input option{background:#18181c}
 .star.on{color:#f5c518;filter:drop-shadow(0 2px 6px rgba(245,197,24,.45))}
 .star:active{transform:scale(.84)}
 
+/* ── SEARCH ── */
+.search-wrap{padding:0 16px 10px}
+.search-input{
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  border-radius:20px;color:var(--txt);font-family:inherit;font-size:14px;
+  padding:9px 16px;width:100%;outline:none;letter-spacing:-.1px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.search-input:focus{border-color:rgba(255,55,95,.4);box-shadow:0 0 0 3px rgba(255,55,95,.1)}
+.search-input::placeholder{color:rgba(255,255,255,.2)}
+
+/* ── STATS ── */
+.stats-card{
+  margin:0 16px 14px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);border-radius:18px;
+  padding:16px 20px;display:flex;justify-content:space-around;text-align:center;
+}
+.stat-val{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.stat-lbl{font-size:11px;color:var(--t2);margin-top:4px;font-weight:600;letter-spacing:.2px}
+.stat-sep{width:1px;background:var(--sep);flex-shrink:0}
+
+/* ── PLAN ── */
+.plan-wrap{
+  margin:0 16px;background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);border-radius:20px;overflow:hidden;
+}
+.plan-hdr{padding:16px 20px;border-bottom:1px solid var(--sep)}
+.plan-step{padding:14px 20px;display:flex;gap:12px;align-items:flex-start}
+.plan-step+.plan-step{border-top:1px solid var(--sep)}
+.plan-time{min-width:44px;font-size:12px;font-weight:700;color:var(--t2);font-variant-numeric:tabular-nums;padding-top:2px}
+.plan-footer{padding:14px 20px;border-top:1px solid var(--sep);font-size:13px;color:var(--t2);line-height:1.55}
+
+/* ── REDUCED MOTION ── */
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  body::before{animation:none}
+}
+
 /* ── DEBUG ── */
 #dbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.97);z-index:9999;flex-direction:column;padding:16px;gap:10px}
 #dbg.on{display:flex}
@@ -654,8 +692,12 @@ select.form-input option{background:#18181c}
         <div class="sync-wrap" onclick="toggleDbg()" id="want-sync">
           <div class="dot" id="dot-mobile"></div>
         </div>
+        <button class="nav-action" onclick="pickRandom()" aria-label="ランダム抽選" title="ランダム抽選" style="background:rgba(255,255,255,.1);font-size:16px">🎲</button>
         <button class="nav-action" onclick="openAddModal()" aria-label="追加">+</button>
       </div>
+    </div>
+    <div class="search-wrap">
+      <input class="search-input" id="want-search" placeholder="名前・場所・メモで検索…" oninput="wantSearch=this.value;renderWant()">
     </div>
     <div class="filter-bar" id="want-filters">
       <button class="fchip on" onclick="filterWant('all',this)">すべて</button>
@@ -695,9 +737,13 @@ select.form-input option{background:#18181c}
         <span style="font-size:11px;color:var(--t3)">▾</span>
       </div>
     </div>
+    <div class="search-wrap">
+      <input class="search-input" id="archive-search" placeholder="名前・場所・感想で検索…" oninput="archiveSearch=this.value;renderArchive()">
+    </div>
     <div class="filter-bar" id="archive-filters">
       <button class="fchip on" onclick="filterArchive('all',this)">すべて</button>
     </div>
+    <div id="archive-stats"></div>
     <div class="card-list" id="archive-list"></div>
     <div class="empty-state" id="archive-empty" style="display:none">
       <div class="empty-icon">◎</div>
@@ -747,6 +793,16 @@ select.form-input option{background:#18181c}
         <div class="empty-sub">「リサーチ」を押すとAIが最新スポットをジャンル別に調べます</div>
       </div>
     </div>
+    <div style="padding:24px 16px 0">
+      <div class="settings-title" style="margin-bottom:12px">✦ AIデートプラン</div>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="plan-prompt" placeholder="例：雨の日でも楽しめる土曜午後コース" style="flex:1;font-size:14px">
+        <button class="ai-btn" id="btn-plan" onclick="generateDatePlan()">作成</button>
+      </div>
+      <div class="suggest-ai-status" id="plan-ai-status" style="margin:12px 0 0;display:none"></div>
+      <div id="plan-result" style="margin:12px 0 0"></div>
+    </div>
+    <div style="height:32px"></div>
   </div>
 
   <!-- Panel: 設定 -->
@@ -762,6 +818,10 @@ select.form-input option{background:#18181c}
         <div class="settings-row">
           <span class="settings-row-label">GAS URL</span>
           <input class="settings-input" id="s-gas" type="text" placeholder="https://script.google.com/..." onblur="saveGasUrl(this.value)">
+        </div>
+        <div class="settings-row">
+          <span class="settings-row-label">GAS Token</span>
+          <input class="settings-input" id="s-gas-token" type="password" placeholder="共有シークレット" autocomplete="off" onblur="saveGasToken(this.value)">
         </div>
       </div>
     </div>
@@ -876,6 +936,23 @@ select.form-input option{background:#18181c}
   </div>
 </div>
 
+<!-- Random Sheet -->
+<div id="random-sheet" class="sheet-ov" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title">🎲 今日どこ行く？</div>
+      <button class="sheet-close" onclick="document.getElementById('random-sheet').style.display='none'">✕</button>
+    </div>
+    <div class="sheet-body" id="random-body"></div>
+    <div class="sheet-actions">
+      <button class="sheet-btn secondary" onclick="pickRandom()">もう一度</button>
+      <button class="sheet-btn primary" onclick="document.getElementById('random-sheet').style.display='none'">決定！</button>
+    </div>
+    <div style="height:8px"></div>
+  </div>
+</div>
+
 <!-- Debug -->
 <div id="dbg">
   <div style="display:flex;gap:8px;align-items:center">
@@ -899,8 +976,8 @@ select.form-input option{background:#18181c}
 <script>
 // ── Constants ──
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
-const _GAS_URL = 'https://script.google.com/macros/s/AKfycbyjXAXZ3NMtoBnIFYVaZrs8N8U1izheQ9DMt4ouR1INJH-MCXRY5ihRuMbutDVq2TJW/exec';
-let GAS = localStorage.getItem('gas_url') || _GAS_URL;
+let GAS = localStorage.getItem('gas_url') || '';
+let GAS_TOKEN = localStorage.getItem('gas_token') || '';
 
 // ── Data ──
 let places = [], archived = [], suggestions = [], preferences = {}, config = {};
@@ -911,6 +988,7 @@ let wantFilter = 'all', archiveFilter = 'all';
 let pendingSuggestions = [];
 let feedItems = []; // local-only, not persisted
 let editingId = null, visitingId = null, currentRating = 0;
+let wantSearch = '', archiveSearch = '';
 
 // ── Genre system ──
 const GENRE_COLOR = {
@@ -933,7 +1011,8 @@ function genreColor(g){ return GENRE_COLOR[g]||'#636366'; }
 function genreGrad(g){ return GENRE_GRAD[g]||GENRE_GRAD['その他']; }
 
 // ── Helpers ──
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function parseAIJson(text){const m=text.match(/\{[\s\S]*\}/);if(!m)throw new Error('AI応答にJSONが見つかりませんでした');return JSON.parse(m[0]);}
 function todayStr(){ const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function normDate(s){ s=String(s||'');if(!s)return'';if(s.includes('T')){const d=new Date(s);if(!isNaN(d))return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}return s.slice(0,10); }
 function setSt(s,t){
@@ -949,6 +1028,49 @@ function toast(msg){ const t=document.getElementById('toast');t.textContent=msg;
 function log(msg,type=''){ const ts=new Date().toTimeString().slice(0,8);const cls=type?` class="d${type}"`:' class="dinf"';dbgLines.push(`<span${cls}>[${ts}] ${String(msg).replace(/</g,'&lt;')}</span>`);if(dbgLines.length>300)dbgLines.shift();const el=document.getElementById('dbg-log');el.innerHTML=dbgLines.join('\n');el.scrollTop=el.scrollHeight; }
 function toggleDbg(){ document.getElementById('dbg').classList.toggle('on'); }
 function priceSortVal(s){ const m=String(s||'').replace(/[,，￥¥]/g,'').match(/\d+/);return m?parseInt(m[0]):99999; }
+
+// ── Map ──
+function openMap(btn){
+  const name=btn.dataset.mapname||'';const loc=btn.dataset.maploc||'';
+  const q=encodeURIComponent((name+' '+loc).trim());
+  window.open('https://maps.google.com/?q='+q,'_blank','noopener');
+}
+
+// ── Random pick ──
+function pickRandom(){
+  const list=places.filter(p=>p.status==='want');
+  if(!list.length)return toast('行きたいリストが空です');
+  const p=list[Math.floor(Math.random()*list.length)];
+  const c=genreColor(p.genre);
+  document.getElementById('random-body').innerHTML=`
+    <div style="text-align:center;padding:20px 0 28px">
+      <div style="font-size:52px;margin-bottom:16px;filter:drop-shadow(0 4px 20px rgba(255,55,95,.4))">🎲</div>
+      ${p.genre?`<div style="margin-bottom:12px"><span class="genre-badge" style="background:${c}22;color:${c}">${esc(p.genre)}</span></div>`:''}
+      <div style="font-size:26px;font-weight:800;letter-spacing:-.5px;margin-bottom:8px">${esc(p.name)}</div>
+      ${p.location?`<div style="font-size:14px;color:var(--t2);margin-bottom:4px">📍 ${esc(p.location)}</div>`:''}
+      ${p.price?`<div style="font-size:14px;color:var(--t2);margin-bottom:12px">💴 ${esc(p.price)}</div>`:''}
+      ${p.memo?`<div style="font-size:14px;color:rgba(255,255,255,.5);line-height:1.65;max-width:280px;margin:0 auto">${esc(p.memo)}</div>`:''}
+    </div>`;
+  document.getElementById('random-sheet').style.display='flex';
+}
+
+// ── Archive stats ──
+function renderArchiveStats(){
+  const el=document.getElementById('archive-stats');if(!el)return;
+  if(!archived.length){el.innerHTML='';return;}
+  const total=archived.length;
+  const avg=(archived.reduce((s,p)=>s+p.rating,0)/total).toFixed(1);
+  const gc={};archived.forEach(p=>{if(p.genre)gc[p.genre]=(gc[p.genre]||0)+1;});
+  const top=Object.entries(gc).sort((a,b)=>b[1]-a[1])[0];
+  const tc=top?genreColor(top[0]):'var(--acc)';
+  el.innerHTML=`<div class="stats-card">
+    <div><div class="stat-val">${total}</div><div class="stat-lbl">訪問数</div></div>
+    <div class="stat-sep"></div>
+    <div><div class="stat-val" style="color:#f5c518">★${avg}</div><div class="stat-lbl">平均評価</div></div>
+    <div class="stat-sep"></div>
+    <div><div class="stat-val" style="font-size:15px;color:${tc}">${top?esc(top[0]):'—'}</div><div class="stat-lbl">よく行くジャンル</div></div>
+  </div>`;
+}
 
 // ── Auth ──
 function showSetup(){
@@ -966,22 +1088,31 @@ function saveKey(){
   localStorage.setItem('claude_api_key',k);
   hideSetup();init();
 }
-function saveKeyFromSettings(v){ const k=v.trim();if(!k)return;localStorage.setItem('claude_api_key',k);toast('APIキーを更新しました'); }
+function saveKeyFromSettings(v){ const k=v.trim();if(!k)return;if(!k.startsWith('sk-ant-'))return toast('sk-ant- で始まるキーを入力してください');localStorage.setItem('claude_api_key',k);toast('APIキーを更新しました'); }
 function saveGasUrl(v){
   const url=v.trim();if(!url)return;
   localStorage.setItem('gas_url',url);GAS=url;
   toast('GAS URLを更新しました。再読み込みします...');
   setTimeout(init,800);
 }
+function saveGasToken(v){
+  const t=v.trim();if(!t)return;
+  localStorage.setItem('gas_token',t);GAS_TOKEN=t;
+  toast('GASトークンを更新しました。再読み込みします...');
+  setTimeout(init,800);
+}
 
 // ── GAS ──
 async function gasCall(params){
   if(!GAS)throw new Error('GAS URLが未設定です。設定タブで入力してください。');
+  if(!GAS_TOKEN)throw new Error('GASトークンが未設定です。設定タブで入力してください。');
+  params={...params,token:GAS_TOKEN};
   const qs=Object.entries(params).map(([k,v])=>encodeURIComponent(k)+'='+encodeURIComponent(v)).join('&');
   if(useFetch){
     try{
       log(`fetch→ ${params.action}[${params.sheet||''}]`);
       const r=await fetch(GAS+'?'+qs,{redirect:'follow'});
+      if(!r.ok)throw new Error('HTTP '+r.status);
       const text=await r.text();
       log('raw: '+text.slice(0,80));
       const json=JSON.parse(text);
@@ -1015,7 +1146,7 @@ async function askClaude(prompt,maxTok=1400){
   const r=await fetch(CLAUDE_API,{
     method:'POST',
     headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTok,messages:[{role:'user',content:prompt}]})
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:maxTok,messages:[{role:'user',content:prompt}]})
   });
   const d=await r.json();
   if(d.error)throw new Error(d.error.message);
@@ -1055,6 +1186,7 @@ function renderAll(){
   renderSwipeDeck();renderSuggestHistory();renderPreferences();
   document.getElementById('s-key').value=localStorage.getItem('claude_api_key')||'';
   document.getElementById('s-gas').value=GAS;
+  document.getElementById('s-gas-token').value=GAS_TOKEN;
 }
 
 // ── Tabs ──
@@ -1095,6 +1227,7 @@ function filterArchive(g,btn){
 function renderWant(){
   let list=places.filter(p=>p.status==='want');
   if(wantFilter!=='all')list=list.filter(p=>p.genre===wantFilter);
+  if(wantSearch){const q=wantSearch.toLowerCase();list=list.filter(p=>(p.name+p.location+p.memo).toLowerCase().includes(q));}
   const sort=document.getElementById('want-sort')?.value||'date-desc';
   const labels={'date-desc':'追加日（新→古）','date-asc':'追加日（古→新）','name-asc':'名前順','price-asc':'価格（安→高）'};
   const lbl=document.getElementById('want-sort-lbl');if(lbl)lbl.textContent=labels[sort]||sort;
@@ -1124,6 +1257,7 @@ function placeCardHTML(p){
       </div>
       ${p.memo?`<div class="place-memo">${esc(p.memo)}</div>`:''}
       ${linkEl}
+      <button onclick="openMap(this)" data-mapname="${esc(p.name)}" data-maploc="${esc(p.location)}" style="background:none;border:none;font-size:12px;color:var(--tel);cursor:pointer;font-family:inherit;padding:0;display:block;margin-top:5px;text-align:left">📍 地図を開く</button>
     </div>
     <div class="place-card-footer">
       <button class="card-btn primary" onclick="openVisitModal('${p.id}')">行った ✓</button>
@@ -1183,8 +1317,20 @@ async function savePlace(){
     renderFilters();renderWant();setSt('ok','同期済み');
   }catch(e){log('savePlace: '+e.message,'err');setSt('err','保存失敗');toast('保存失敗: '+e.message);}
 }
+let _delConfirmId=null,_delConfirmTimer=null;
 async function deletePlace(id){
-  if(!confirm('削除しますか？'))return;
+  if(_delConfirmId!==id){
+    _delConfirmId=id;clearTimeout(_delConfirmTimer);
+    const btn=document.querySelector(`.card-btn.danger[onclick="deletePlace('${id}')"]`);
+    if(btn)btn.textContent='本当に削除？';
+    _delConfirmTimer=setTimeout(()=>{
+      _delConfirmId=null;
+      const b=document.querySelector(`.card-btn.danger[onclick="deletePlace('${id}')"]`);
+      if(b)b.textContent='削除';
+    },2500);
+    return;
+  }
+  clearTimeout(_delConfirmTimer);_delConfirmId=null;
   setSt('busy','削除中...');
   try{
     places=places.filter(p=>p.id!==id);
@@ -1203,7 +1349,7 @@ async function autoExtract(){
   status.textContent=`「${name}」の情報を取得中...`;
   try{
     const text=await askClaude(`日本語で「${name}」についてJSONのみ。前置き不要。\n{"url":"公式URL or null","location":"エリア・住所","price":"価格帯 or null","genre":"レストラン/カフェ/美術館/博物館/公園/ショッピング/イベント/季節限定/その他","description":"60文字程度の魅力的な説明"}`,600);
-    const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+    const json=parseAIJson(text);
     if(json.url&&json.url!=='null')document.getElementById('pm-url').value=json.url;
     if(json.location&&json.location!=='null')document.getElementById('pm-location').value=json.location;
     if(json.price&&json.price!=='null')document.getElementById('pm-price').value=json.price;
@@ -1247,8 +1393,10 @@ async function submitVisit(){
   }catch(e){log('submitVisit: '+e.message,'err');setSt('err','失敗');}
 }
 function renderArchive(){
+  renderArchiveStats();
   let list=[...archived];
   if(archiveFilter!=='all')list=list.filter(p=>p.genre===archiveFilter);
+  if(archiveSearch){const q=archiveSearch.toLowerCase();list=list.filter(p=>(p.name+p.location+p.impression).toLowerCase().includes(q));}
   const sort=document.getElementById('archive-sort')?.value||'date-desc';
   const labels={'date-desc':'訪問日（新→古）','date-asc':'訪問日（古→新）','rating-desc':'評価（高→低）'};
   const lbl=document.getElementById('archive-sort-lbl');if(lbl)lbl.textContent=labels[sort]||sort;
@@ -1278,7 +1426,10 @@ function renderArchive(){
         </div>
       </div>
       ${p.impression?`<div class="archive-impression">${esc(p.impression)}</div>`:''}
-      ${link}
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        ${link}
+        <button onclick="openMap(this)" data-mapname="${esc(p.name)}" data-maploc="${esc(p.location)}" style="background:none;border:none;font-size:12px;color:var(--tel);cursor:pointer;font-family:inherit;padding:0">📍 地図を開く</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1297,7 +1448,7 @@ async function generateSuggestions(){
       `あなたはカップルのデートプランナーです。今日（${today}）を考慮し新鮮なデートスポット5件を提案してください。\n\nユーザー好み: ${prefStr}\n行った場所: ${visited}\n行きたいリスト: ${want}\n\n提案タイプ各1〜2件: opening(新オープン), exhibition(展示中), seasonal(${month}月旬), event(期間限定)\n\nJSONのみ。前置き不要。リストや行った場所は除外。\n{"suggestions":[{"name":"場所名","url":"公式URL or null","genre":"レストラン/カフェ/美術館/博物館/公園/ショッピング/イベント/季節限定/その他","description":"カップル向け60文字の説明","price":"価格帯 or null","suggestedType":"opening/exhibition/seasonal/event"}]}`,
       2000
     );
-    const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+    const json=parseAIJson(text);
     const newS=(json.suggestions||[]).map(s=>({
       id:(Date.now()+Math.random()).toString().replace('.',''),
       name:s.name,url:s.url&&s.url!=='null'?s.url:'',
@@ -1365,7 +1516,7 @@ function attachSwipeListeners(id){
     else{card.style.transition='transform .3s cubic-bezier(.25,.46,.45,.94)';card.style.transform='';setTimeout(()=>card.style.transition='',300);}
   };
   card.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;dragging=true;card.style.transition='none';},{passive:true});
-  card.addEventListener('touchmove',e=>{if(dragging)onMove(e.touches[0].clientX);},{passive:true});
+  card.addEventListener('touchmove',e=>{if(!dragging)return;const dx=e.touches[0].clientX-startX;if(Math.abs(dx)>10)e.preventDefault();onMove(e.touches[0].clientX);},{passive:false});
   card.addEventListener('touchend',e=>{if(dragging)onEnd(e.changedTouches[0].clientX);});
   const mm=e=>{if(dragging)onMove(e.clientX);};
   const mu=e=>{if(dragging)onEnd(e.clientX);};
@@ -1522,7 +1673,7 @@ JSONのみ。前置き・解説不要。
 {"genres":[{"genre":"ジャンル名","spots":[{"name":"スポット名","location":"エリア・最寄り駅","price":"価格帯 or null","description":"カップル向け50文字の魅力","url":"公式URL or null","reason":"今おすすめな理由（15文字）"}]}]}`,
       3000
     );
-    const json=JSON.parse(text.replace(/```json|```/g,'').trim());
+    const json=parseAIJson(text);
     feedItems=(json.genres||[]).flatMap(g=>
       (g.spots||[]).map(s=>({
         id:(Date.now()+Math.random()).toString().replace('.',''),
@@ -1585,21 +1736,73 @@ function renderFeed(){
 
 async function feedAdd(id){
   const item=feedItems.find(x=>x.id===id);if(!item||item.added)return;
-  item.added=true;
-  renderFeed();
   const newP={id:item.id,name:item.name,url:item.url||'',memo:item.description,genre:item.genre,location:item.location||'',price:item.price||'',addedDate:todayStr(),status:'want'};
-  places.push(newP);
   setSt('busy','保存中...');
   try{
-    if(places.length===1){
+    if(!places.length){
       await gasWrite('places',[['id','name','url','memo','genre','location','price','addedDate','status'],[newP.id,newP.name,newP.url,newP.memo,newP.genre,newP.location,newP.price,newP.addedDate,newP.status]]);
     }else{
       await gasAppend('places',[[newP.id,newP.name,newP.url,newP.memo,newP.genre,newP.location,newP.price,newP.addedDate,newP.status]]);
     }
+    places.push(newP);
+    item.added=true;
+    const btn=document.querySelector('#fc-'+id+' .feed-add-btn');
+    if(btn){btn.classList.add('done');btn.textContent='追加済み ✓';}
     renderFilters();renderWant();
     setSt('ok','同期済み');toast(`「${item.name}」を行きたいに追加しました`);
-  }catch(e){log('feedAdd: '+e.message,'err');setSt('err','保存失敗');}
+  }catch(e){log('feedAdd: '+e.message,'err');setSt('err','保存失敗');toast('保存失敗: '+e.message);}
 }
+
+// ── Date Plan ──
+async function generateDatePlan(){
+  const promptVal=document.getElementById('plan-prompt').value.trim();
+  if(!promptVal)return toast('プランの条件を入力してください');
+  const btn=document.getElementById('btn-plan');
+  const status=document.getElementById('plan-ai-status');
+  btn.disabled=true;status.style.display='block';status.textContent='✦ AIがプランを作成中です...';
+  const wantList=places.slice(0,12).map(p=>`${p.name}(${p.genre||'?'},${p.location||'?'})`).join('、')||'なし';
+  const visited=archived.slice(0,8).map(p=>p.name).join('、')||'なし';
+  const prefStr=Object.entries(preferences).map(([g,v])=>`${g}:好き${v.liked}`).join(', ')||'なし';
+  try{
+    const text=await askClaude(
+      `あなたはカップルのデートプランナーです。以下の条件でデートプランを提案してください。\n\n条件: ${promptVal}\n行きたいリスト: ${wantList}\n行ったことある: ${visited}\n好きなジャンル: ${prefStr}\n\nJSONのみ。前置き不要。\n{"title":"プランタイトル","steps":[{"time":"11:00","place":"場所名","genre":"ジャンル","description":"30文字の説明","tip":"ポイント（省略可）"}],"total_budget":"合計予算帯","memo":"全体メモ30文字"}`,
+      1600
+    );
+    const json=parseAIJson(text);
+    const steps=json.steps||[];
+    document.getElementById('plan-result').innerHTML=`<div class="plan-wrap">
+      <div class="plan-hdr">
+        <div style="font-size:17px;font-weight:800;letter-spacing:-.4px;background:var(--ga);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">${esc(json.title||'デートプラン')}</div>
+        ${json.total_budget?`<div style="font-size:12px;color:var(--t2);margin-top:4px">💴 ${esc(json.total_budget)}</div>`:''}
+      </div>
+      ${steps.map(s=>{const c=genreColor(s.genre);return`<div class="plan-step">
+        <div class="plan-time">${esc(s.time||'')}</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700;letter-spacing:-.2px;margin-bottom:5px">${esc(s.place||'')}</div>
+          ${s.genre?`<span style="font-size:10px;font-weight:700;letter-spacing:.4px;color:${c};background:${c}18;padding:2px 8px;border-radius:10px;text-transform:uppercase">${esc(s.genre)}</span>`:''}
+          <div style="font-size:13px;color:var(--t2);margin-top:6px;line-height:1.55">${esc(s.description||'')}</div>
+          ${s.tip?`<div style="font-size:12px;color:var(--tel);margin-top:4px">💡 ${esc(s.tip)}</div>`:''}
+        </div>
+      </div>`;}).join('')}
+      ${json.memo?`<div class="plan-footer">📝 ${esc(json.memo)}</div>`:''}
+    </div>`;
+    status.style.display='none';toast('デートプランを作成しました ✦');
+  }catch(e){status.textContent='エラー: '+e.message;log('generateDatePlan: '+e.message,'err');}
+  btn.disabled=false;
+}
+
+// ── Keyboard swipe (desktop) ──
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  if(e.key==='Escape'){
+    const sheets=['place-sheet','visit-sheet','random-sheet'];
+    for(const id of sheets){const el=document.getElementById(id);if(el&&el.style.display!=='none'){el.style.display='none';return;}}
+    return;
+  }
+  if(!document.getElementById('pnl-suggest').classList.contains('on'))return;
+  if(e.key==='ArrowLeft'){e.preventDefault();swipeNo();}
+  else if(e.key==='ArrowRight'){e.preventDefault();swipeYes();}
+});
 
 // ── Startup ──
 (function(){
